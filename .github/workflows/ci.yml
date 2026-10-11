@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/game-telemetry-demo
+
+jobs:
+  lint-test:
+    name: Lint et tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: support
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: support/package-lock.json
+
+      - name: Installation des dependances
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+  image:
+    name: Image Docker
+    needs: lint-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # tag tracable : version du package + sha court du commit (ex : 0.9.0-20ca8b9)
+      - name: Calcul du tag
+        id: tag
+        run: |
+          VERSION=$(node -p "require('./support/package.json').version")
+          echo "tag=${VERSION}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Construction de l'image
+        run: |
+          docker build \
+            --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t $IMAGE_NAME:${{ steps.tag.outputs.tag }} support
+
+      # le job echoue (exit-code 1) si une vulnerabilite CRITICAL corrigeable est trouvee
+      - name: Analyse de vulnerabilites (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+          version: v0.74.0
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Connexion a GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Publication de l'image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag $IMAGE_NAME:${{ steps.tag.outputs.tag }} $IMAGE_NAME:latest
+          docker push $IMAGE_NAME:${{ steps.tag.outputs.tag }}
+          docker push $IMAGE_NAME:latest
