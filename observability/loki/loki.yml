@@ -36,5 +36,14 @@ limits_config:
 ingester:
   chunk_idle_period: 1m
 
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /etc/loki/rules
+  rule_path: /loki/rules-temp
+  alertmanager_url: http://alertmanager:9093
+  enable_api: true
+
 analytics:
   reporting_enabled: false

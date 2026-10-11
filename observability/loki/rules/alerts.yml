@@ -1,0 +1,35 @@
+groups:
+  - name: logs-service
+    rules:
+      - alert: ErreursJournalisees
+        expr: sum(count_over_time({job="game-telemetry", level="error"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Plus de 5 erreurs journalisees en 5 min par le service"
+
+  - name: logs-joueurs
+    rules:
+      - alert: SaccadesOverlayHauteResolution
+        expr: |
+          sum by (report_build) (
+            count_over_time({job="game-telemetry", event="perf_spike"} | json | cause="overlay" and report_graphics_width >= 2560 [15m])
+          ) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Saccades overlay en serie sur les ecrans >= 2560 px (build {{ $labels.report_build }})"
+
+  - name: logs-integrite
+    rules:
+      - alert: ClientRapportsFalsifies
+        expr: |
+          sum by (report_browser) (
+            count_over_time({job="game-telemetry", event="perf_spike"} | json | cause="invalid" [10m])
+          ) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rapports falsifies recus ({{ $labels.report_browser }})"

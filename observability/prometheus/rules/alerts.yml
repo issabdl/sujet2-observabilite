@@ -1,0 +1,75 @@
+groups:
+  - name: sante-service
+    rules:
+      - alert: ServiceDown
+        expr: up{job="game-telemetry"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Le service game-telemetry ne repond plus au scraping"
+
+      - alert: TauxErreur5xxEleve
+        expr: route:http_errors:ratio5m > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Plus de 5 % de 5xx sur {{ $labels.route }}"
+
+      - alert: LatenceIngestionElevee
+        expr: route:http_request_duration_seconds:p95_5m{route="/api/reports"} > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 de POST /api/reports au-dessus de 50 ms ({{ $value | humanizeDuration }})"
+
+      - alert: RapportsRejetesEleves
+        expr: |
+          sum(rate(perf_reports_rejected_total[5m]))
+          / sum(rate(http_requests_total{route="/api/reports"}[5m])) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Plus de 10 % des rapports clients sont refuses"
+
+      - alert: TickServeurDegrade
+        expr: max_over_time(games_tick_gap_max_ms[2m]) > 150
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ecart entre deux ticks serveur de {{ $value | humanize }} ms (normal ~50 ms)"
+
+  - name: joueurs
+    rules:
+      - alert: RegressionOverlayParBuild
+        expr: |
+          sum by (build) (build_cause:perf_reports:rate5m{cause="overlay"})
+          / sum by (build) (build_cause:perf_reports:rate5m) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} des rapports du build {{ $labels.build }} sont des saccades overlay"
+
+  - name: integrite
+    rules:
+      - alert: FarmingSuspecte
+        expr: |
+          map:games_short:ratio30m > 0.2
+          and on (map) sum by (map) (increase(game_duration_seconds_count[30m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} des parties sur {{ $labels.map }} durent moins de 10 s"
+
+      - alert: RapportsFalsifies
+        expr: sum(increase(perf_reports_total{cause="invalid"}[10m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanize }} rapports incoherents (fps > 144, etape negative) sur 10 min"

@@ -53,6 +53,7 @@ services:
     command: -config.file=/etc/loki/loki.yml
     volumes:
       - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - ./observability/loki/rules:/etc/loki/rules/fake:ro
       - loki-data:/loki
     ports:
       - "3100:3100"
@@ -72,6 +73,16 @@ services:
       - "12345:12345"
     depends_on:
       - loki
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
     restart: unless-stopped
 
   grafana:
