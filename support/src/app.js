@@ -46,7 +46,7 @@ function createApp({ fleet, log }) {
     const busy = Date.now() + Math.min(40, size / 400);
     while (Date.now() < busy) { /* travail synchrone volontaire */ }
     log({ ts: new Date().toISOString(), level: 'warn', event: 'perf_spike', source: 'ingest', report, server: body.server });
-    return res.status(202).json({ accepted: report.id });
+    return res.status(200).json({ accepted: report.id });
   });
 
   app.use((err, req, res, _next) => {
