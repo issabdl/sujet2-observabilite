@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createApp } = require('./app');
 const { Fleet } = require('./fleet');
+const { classify } = require('./classify');
+const metrics = require('./metrics');
 
 const PORT = Number(process.env.PORT ?? 8080);
 const LOG_FILE = process.env.LOG_FILE ?? path.join(__dirname, '..', 'logs', 'telemetry.log');
@@ -13,6 +15,8 @@ fs.mkdirSync(path.dirname(LOG_FILE), { recursive: true });
 const stream = fs.createWriteStream(LOG_FILE, { flags: 'a' });
 
 const log = (obj) => {
+  if (obj.event === 'perf_spike') obj.cause = classify(obj.report);
+  metrics.track(obj);
   const line = JSON.stringify(obj);
   stream.write(line + '\n');
   if (process.env.LOG_STDOUT !== '0') process.stdout.write(line + '\n');

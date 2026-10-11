@@ -23,6 +23,17 @@ test('GET /healthz', async () => {
   });
 });
 
+test('GET /metrics expose les metriques', async () => {
+  await withServer(async (base) => {
+    await fetch(`${base}/healthz`);
+    const r = await fetch(`${base}/metrics`);
+    assert.equal(r.status, 200);
+    const txt = await r.text();
+    assert.match(txt, /http_requests_total\{method="GET",route="\/healthz",status="200"\}/);
+    assert.match(txt, /perf_reports_total/);
+  });
+});
+
 test('POST /api/reports refuse un corps invalide', async () => {
   await withServer(async (base) => {
     const r = await fetch(`${base}/api/reports`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
