@@ -75,7 +75,8 @@ function track(e) {
   if (e.event === 'perf_spike') {
     const build = cleanBuild(e.report?.build);
     perfReports.inc({ cause: e.cause ?? 'generic', build, source: e.source ?? 'fleet' });
-    if (typeof e.report?.frameMs === 'number' && e.report.frameMs > 0) frameTime.observe({ build }, e.report.frameMs);
+    const visible = e.cause !== 'hidden' && e.cause !== 'invalid';
+    if (visible && typeof e.report?.frameMs === 'number' && e.report.frameMs > 0) frameTime.observe({ build }, e.report.frameMs);
   } else if (e.event === 'game_created') {
     gamesCreated.inc({ map: e.server.map });
   } else if (e.event === 'game_completed') {
