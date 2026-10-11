@@ -1,0 +1,30 @@
+groups:
+  - name: api
+    rules:
+      - record: route_status:http_requests:rate5m
+        expr: sum by (route, status) (rate(http_requests_total[5m]))
+
+      - record: route:http_errors:ratio5m
+        expr: |
+          sum by (route) (rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          sum by (route) (rate(http_requests_total[5m]))
+
+      - record: route:http_request_duration_seconds:p95_5m
+        expr: histogram_quantile(0.95, sum by (le, route) (rate(http_request_duration_seconds_bucket[5m])))
+
+  - name: joueurs
+    rules:
+      - record: build_cause:perf_reports:rate5m
+        expr: sum by (build, cause) (rate(perf_reports_total[5m]))
+
+      - record: build:perf_report_frame_ms:p95_15m
+        expr: histogram_quantile(0.95, sum by (le, build) (rate(perf_report_frame_ms_bucket[15m])))
+
+  - name: parties
+    rules:
+      - record: map:games_short:ratio30m
+        expr: |
+          sum by (map) (increase(game_duration_seconds_bucket{le="10.0"}[30m]))
+          /
+          sum by (map) (increase(game_duration_seconds_count[30m]))

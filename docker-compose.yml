@@ -1,0 +1,41 @@
+services:
+  app:
+    build: ./support
+    image: game-telemetry-demo:local
+    environment:
+      LOG_FILE: /app/logs/telemetry.log
+      SPEED: "10"
+      GAMES_PER_MINUTE: "6"
+    ports:
+      - "8080:8080"
+    volumes:
+      - app-logs:/app/logs
+    restart: unless-stopped
+
+  loadgen:
+    build: ./support
+    image: game-telemetry-demo:local
+    command: ["node", "scripts/loadgen.js", "--url", "http://app:8080", "--rps", "5", "--burst-every", "120", "--burst-rps", "80"]
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.13.3
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+volumes:
+  app-logs:
+  prometheus-data:
